@@ -1,5 +1,6 @@
 defmodule TendermintStateReplicationTestProject.MixProject do
   use Mix.Project
+  alias TendermintStateReplicationTestProject.Application
 
   def project do
     [
@@ -14,6 +15,7 @@ defmodule TendermintStateReplicationTestProject.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      mod: {Application, []},
       extra_applications: [:logger]
     ]
   end
