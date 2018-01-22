@@ -1,0 +1,3 @@
+%{
+  "abci_counter": {:git, "https://github.com/KrzysiekJ/abci_counter.git", "8c89dd9e8e8771f9290c322153932e3dab2f66ec", [branch: "master"]},
+}
