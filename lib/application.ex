@@ -6,7 +6,8 @@ defmodule TendermintStateReplicationTestProject.Application do
     import Supervisor.Spec
 
     children = [
-      worker(Transaction, [])
+      worker(Transaction, []),
+      worker(:abci_server_sup, [{Transaction, 46658}])
     ]
 
     opts = [strategy: :one_for_one, name: Supervisor]
