@@ -5,27 +5,12 @@ defmodule TendermintStateReplicationTestProject.Transaction do
 
   ## Client API
 
-  @doc """
-  Starts the registry.
-  """
   def start_link() do
-    GenServer.start_link(__MODULE__, :ok, [])
+    GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
-  @doc """
-  Looks up the bucket pid for `name` stored in `server`.
-
-  Returns `{:ok, pid}` if the bucket exists, `:error` otherwise.
-  """
-  def lookup(server, name) do
-    GenServer.call(server, {:lookup, name})
-  end
-
-  @doc """
-  Ensures there is a bucket associated with the given `name` in `server`.
-  """
-  def create(server, name) do
-    GenServer.cast(server, {:create, name})
+  def create(transaction, options) do
+    GenServer.cast(__MODULE__, {:send_transaction, options})
   end
 
   ## Server Callbacks
@@ -35,14 +20,17 @@ defmodule TendermintStateReplicationTestProject.Transaction do
     {:ok, %{}}
   end
 
-  def handle_call(_msg, _from, names) do
+  def handle_call({:send_transaction, options}, _, _) do
     IO.puts "#call: "
 
-    {:reply, "", ""}
+    # {:reply, "", ""}
+    {:RequestCheckTx, "", ""}
+    {:RequestDeliverTx, "", ""}
   end
 
-  def handle_cast(_msg, names) do
+  def handle_cast({:send_transaction, options}, _, _) do
     IO.puts "#cast: "
+    process_request({:RequestDeliverTx})
     {:noreply, ""}
   end
 
@@ -68,32 +56,58 @@ defmodule TendermintStateReplicationTestProject.Transaction do
 
   # Internal functions
 
-  defp process_request({:RequestInfo}) do
+  defp process_request({:RequestInfo, version}) do
     IO.puts "RequestInfo:"
+    IO.inspect version, label: "VERSION"
     {:ResponseInfo, :undefined, "0.1.0", 0, <<>>}
   end
 
-  defp process_request({:RequestInitChain, data}) do
+  defp process_request({:RequestInitChain, validators}) do
     IO.puts "RequestInitChain:"
-    IO.inspect data
+    IO.inspect validators, label: "VALIDATORS"
     {:ResponseInitChain, :undefined}
   end
 
-  defp process_request({:RequestBeginBlock, data, data1}) do
+  defp process_request({:RequestBeginBlock, hash, header, absent_validators, byzantine_validators}) do
     IO.puts "RequestBeginBlock:"
-    IO.inspect data
-    IO.inspect data1
+    IO.inspect hash, label: "HASH"
+    IO.inspect header, label: "HEADER"
+    IO.inspect absent_validators, label: "ABSENT_VALIDATORS"
+    IO.inspect byzantine_validators, label: "BYZANTINE_VALIDATORS"
     {:ResponseBeginBlock, :undefined}
   end
 
-  defp process_request({:RequestEndBlock, data}) do
+  defp process_request({:RequestEndBlock, height}) do
     IO.puts "RequestEndBlock:"
-    IO.inspect data
+    IO.inspect height, label: "HEIGHT"
     {:ResponseEndBlock, []}
   end
 
   defp process_request({:RequestCommit}) do
     IO.puts "RequestCommit:"
-    {:ResponseCommit, :OK, :undefined, :undefined}
+    {:ResponseCommit, :undefined, :undefined, :undefined}
+  end
+
+  defp process_request({:RequestCheckTx, tx}) do
+    IO.puts "RequestCheckTx:"
+    IO.inspect tx, label: "TX"
+    # TODO: check data against nonce
+    {:ResponseCheckTx, :undefined, :undefined, :undefined, :undefined, :undefined}
+  end
+
+  defp process_request({:RequestDeliverTx, tx}) do
+    IO.puts "RequestDeliverTx:"
+    IO.inspect tx, label: "TX"
+    {:ResponseDeliverTx, :undefined, :undefined, :undefined, []}
+  end
+
+  defp process_request({:RequestQuery, data, path, height, prove}) do
+    IO.puts "RequestQuery:"
+    IO.inspect data, label: "DATA"
+    IO.inspect path, label: "PATH"
+    IO.inspect height, label: "HEIGHT"
+    IO.inspect prove, label: "PROVE"
+    {:ResponseQuery, :undefined, :undefined, :undefined, :undefined, :undefined, :undefined, :undefined}
   end
 end
+
