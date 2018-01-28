@@ -1,6 +1,5 @@
 defmodule TendermintStateReplicationTestProject.Transaction do
   use GenServer
-  # use :abci_app
   @behaviour :abci_app
 
   @whitelisted_participants ~w(a b c d)
@@ -11,19 +10,13 @@ defmodule TendermintStateReplicationTestProject.Transaction do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
-  def create(transaction, options) do
-    GenServer.cast(__MODULE__, {:send_transaction, options})
-  end
-
   ## Server Callbacks
 
   def init(:ok) do
-    # IO.puts "#init: "
     {:ok, %{}}
   end
 
-  def handle_call(request, from, state) do
-    # IO.inspect state, label: "#received_state"
+  def handle_call(request, _from, state) do
     state_values =
       with [_ | _] <- state do
         state
@@ -32,48 +25,37 @@ defmodule TendermintStateReplicationTestProject.Transaction do
         _ -> []
       end
 
-    # IO.puts "#call: "
     {response, new_state_values} = process_request(request, state_values)
-    # IO.inspect new_state_values, label: "#new_state"
     {:reply, response, new_state_values}
   end
 
-  def handle_cast({:send_transaction, options}, _, _) do
-    # IO.puts "#cast: "
+  def handle_cast({:send_transaction, _options}, _, _) do
     {:noreply, ""}
   end
 
-  def handle_info(_msg, names) do
-    # IO.puts "#info: "
+  def handle_info(_msg, _names) do
     {:noreply, ""}
   end
 
   def handle_request(request) do
-    # IO.puts "#request: "
     GenServer.call(__MODULE__, request)
   end
 
   def terminate(_, _) do
-    # IO.puts "#terminate: "
     :ok
   end
 
   def change_code(_, _, _) do
-    # IO.puts "#change_code: "
     {:ok, ""}
   end
 
   # Internal functions
 
   defp process_request({:RequestInfo, version}, state) do
-    # IO.puts "RequestInfo:"
-    # IO.inspect version, label: "VERSION"
-    {{:ResponseInfo, :undefined, "0.1.0", 0, <<>>}, state}
+    {{:ResponseInfo, :undefined, version, 0, <<>>}, state}
   end
 
-  defp process_request({:RequestInitChain, validators}, state) do
-    # IO.puts "RequestInitChain:"
-    # IO.inspect validators, label: "VALIDATORS"
+  defp process_request({:RequestInitChain, _validators}, state) do
     # INFO: init state paints that participant "a" has the ball
     state =
       if Keyword.has_key?(state, :participant_who_has_the_ball) do
@@ -94,39 +76,28 @@ defmodule TendermintStateReplicationTestProject.Transaction do
   end
 
   defp process_request(
-         {:RequestBeginBlock, hash, header, absent_validators, byzantine_validators},
+         {:RequestBeginBlock, _hash, _header, _absent_validators, _byzantine_validators},
          state
        ) do
-    # IO.puts "RequestBeginBlock:"
-    # IO.inspect hash, label: "HASH"
-    # IO.inspect header, label: "HEADER"
-    # IO.inspect absent_validators, label: "ABSENT_VALIDATORS"
-    # IO.inspect byzantine_validators, label: "BYZANTINE_VALIDATORS"
     {{:ResponseBeginBlock, :undefined}, state}
   end
 
-  defp process_request({:RequestEndBlock, height}, state) do
-    # IO.puts "RequestEndBlock:"
-    # IO.inspect height, label: "HEIGHT"
+  defp process_request({:RequestEndBlock, _height}, state) do
     {{:ResponseEndBlock, []}, state}
   end
 
   defp process_request({:RequestCommit}, state) do
-    # IO.puts "RequestCommit:"
     {{:ResponseCommit, :undefined, :undefined, :undefined}, state}
   end
 
   defp process_request({:RequestCheckTx, tx}, state) do
-    IO.puts("RequestCheckTx:")
-    IO.inspect(tx, label: "TX")
-
     data =
       with tx <- parse_tx(tx),
            {:ok, from, to, mt_node} <- get_params(tx, state),
            :ok <- check_ball_owner(from, state),
            mt_tree <- create_merkle_tree(mt_node),
            {:ok, to_index} <- get_index(to),
-           %MerkleTree.Proof{hashes: proof} = mt_proof <-
+           %MerkleTree.Proof{hashes: _proof} = mt_proof <-
              MerkleTree.Proof.prove(mt_tree, to_index),
            true <- MerkleTree.Proof.proven?({to, to_index}, mt_node.value, mt_proof) do
         %{code: 0, log: :undefined}
@@ -139,9 +110,6 @@ defmodule TendermintStateReplicationTestProject.Transaction do
   end
 
   defp process_request({:RequestDeliverTx, tx}, state) do
-    IO.puts("RequestDeliverTx:")
-    IO.inspect(tx, label: "TX")
-
     data =
       with tx <- parse_tx(tx),
            {:ok, _from, to, _mt_node} <- get_params(tx, state),
@@ -154,12 +122,7 @@ defmodule TendermintStateReplicationTestProject.Transaction do
     {{:ResponseDeliverTx, data.code, :undefined, data.log, []}, data.state}
   end
 
-  defp process_request({:RequestQuery, data, path, height, prove}, state) do
-    IO.puts("RequestQuery:")
-    IO.inspect(data, label: "DATA")
-    # IO.inspect path, label: "PATH"
-    # IO.inspect height, label: "HEIGHT"
-    # IO.inspect prove, label: "PROVE"
+  defp process_request({:RequestQuery, data, _path, _height, _prove}, state) do
     data =
       with {:ok, value} <- get_from_state(data, state) do
         %{code: 0, log: :undefined, value: value, key: data}
@@ -236,7 +199,7 @@ defmodule TendermintStateReplicationTestProject.Transaction do
   end
 
   defp update_state(current_state, ball_destination) do
-    with {:ok, owner} <- Keyword.fetch(current_state, :participant_who_has_the_ball),
+    with {:ok, _owner} <- Keyword.fetch(current_state, :participant_who_has_the_ball),
          state <- Keyword.put(current_state, :participant_who_has_the_ball, ball_destination) do
       {:ok, state}
     else

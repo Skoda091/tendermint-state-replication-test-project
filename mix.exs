@@ -27,7 +27,8 @@ defmodule TendermintStateReplicationTestProject.MixProject do
       {:ranch, git: "https://github.com/ninenines/ranch", tag: "1.3.2"},
       {:abci_server, github: "KrzysiekJ/abci_server", tag: "v0.3.0"},
       {:merkle_tree, "~> 1.2.1"},
-      {:httpoison, "~> 1.0"}
+      {:httpoison, "~> 1.0"},
+      {:credo, "~> 0.9.0-rc1", only: [:dev, :test], runtime: false}
     ]
   end
 end
