@@ -28,7 +28,8 @@ defmodule TendermintStateReplicationTestProject.MixProject do
       {:abci_server, github: "KrzysiekJ/abci_server", tag: "v0.3.0"},
       {:merkle_tree, "~> 1.2.1"},
       {:httpoison, "~> 1.0"},
-      {:credo, "~> 0.9.0-rc1", only: [:dev, :test], runtime: false}
+      {:credo, "~> 0.9.0-rc1", only: [:dev, :test], runtime: false},
+      {:poison, "~> 3.1"}
     ]
   end
 end
