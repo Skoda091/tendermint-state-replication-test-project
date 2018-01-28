@@ -1,17 +1,17 @@
 # Tendermint state replication test project
 
-An Elixir application which uses tendermint for replicating state in blockchain.
+An Elixir application which uses tendermint for replicating the state in blockchain.
 
 ## Goal
 
 Simulation of passing a ball between defined participants as a blckochain transaction.
 
 Assumptions:
-* There is array of whitelisted participants `["a", "b", "c", "d"]`.
-* The initial state of the app is that participant `"a"` is holding a ball. This information is stored in state ander the key `:participant_who_has_the_ball`.
-* `checkTX` block is responsible for validating transaction against merkle proof and current state of the blockchain.
-* `deliverTX` is responsible for updateing the state of blockchain.
-* `tx` parameter for tendermint passing a ball transaction is send as value of two fields `tx="from=a:to=b"` which is later on parsed in the app.
+* There is an array of whitelisted participants `["a", "b", "c", "d"]`.
+* The initial state of the app is that participant `"a"` is holding a ball. This information is stored in the state under the key `:participant_who_has_the_ball`.
+* `checkTX` block is responsible for validating transaction against a merkle proof and the current state of the blockchain.
+* `deliverTX` is responsible for updating the state of the blockchain.
+* `tx` tendermint parameter for passing the ball transaction is sent as a value of two fields `tx="from=a:to=b"` which is later parsed in the app.
 ## Instalation
 
 * Install tendermint ([instructions](http://tendermint.readthedocs.io/projects/tools/en/master/install.html))
@@ -38,52 +38,65 @@ git clone git@github.com:Skoda091/tendermint-state-replication-test-project.git
   ```bash
   iex -S mix
   ```
-* To pass the ball to a whitelisted participant run from interactive Elixir (IEx)
+* To pass the ball to a whitelisted participant, run from interactive Elixir (IEx):
   ```elixir
   iex(1)> TendermintStateReplicationTestProject.BallService.pass_ball("a", "b")
   ```
 
-  Where first argument is a current owner of the ball and the second argument is destination participant.
-  This fuction will create HTTP request to tendermint.
+  Where the first argument is the current owner of the ball and the second argument is the recipient.
+  This fuction will create an HTTP request to tendermint.
   ```bash
   http://localhost:46657/broadcast_tx_commit?tx="from=a:to=b"
   ```
   Expected result of this function.
   ```elixir
-  {:ok, %HTTPoison.Response{
-   body: "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"\",\n  \"result\": {\n    \"check_tx\": {\n      \"code\": 0,\n      \"data\": \"\",\n      \"log\": \"\",\n      \"gas\": \"0\",\n      \"fee\": \"0\"\n    },\n    \"deliver_tx\": {\n      \"code\": 0,\n      \"data\": \"\",\n      \"log\": \"\",\n      \"tags\": []\n    },\n    \"hash\": \"492AC2718137712A2733177090971DB28B71F23E\",\n    \"height\": 161\n  }\n}",
-   headers: [
-     {"Access-Control-Allow-Credentials", "true"},
-     {"Access-Control-Allow-Origin", ""},
-     {"Access-Control-Expose-Headers", "X-Server-Time"},
-     {"Content-Type", "application/json"},
-     {"X-Server-Time", "1517161816"},
-     {"Date", "Sun, 28 Jan 2018 17:50:17 GMT"},
-     {"Content-Length", "335"}
-   ],
-   request_url: "http://localhost:46657/broadcast_tx_commit?tx=\"from=a:to=b\"",
-   status_code: 200}}
+  %{
+    "check_tx" => %{
+      "code" => 0,
+      "data" => "",
+      "fee" => "0",
+      "gas" => "0",
+      "log" => ""
+    },
+    "deliver_tx" => %{"code" => 0, "data" => "", "log" => "", "tags" => []},
+    "hash" => "492AC2718137712A2733177090971DB28B71F23E",
+    "height" => 4
+  }
   ```
-* To check the current state of the ball run from iex
+  Example of incorrect transaction result.
+  ```elixir
+    %{
+    "check_tx" => %{
+      "code" => 1,
+      "data" => "",
+      "fee" => "0",
+      "gas" => "0",
+      "log" => "Current ball owner is incorrect, a participant doesn't have the ball."
+    },
+    "deliver_tx" => %{"code" => 0, "data" => "", "log" => "", "tags" => []},
+    "hash" => "492AC2718137712A2733177090971DB28B71F23E",
+    "height" => 0
+    }
+  ```
+* To check the current state of the ball run from iex:
   ```elixir
   iex(2)> TendermintStateReplicationTestProject.BallService.check_ball_owner()
   ```
   Expected result of this function.
   ```elixir
-  {:ok, %HTTPoison.Response{
-   body: "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"\",\n  \"result\": {\n    \"response\": {\n      \"code\": 0,\n      \"index\": \"0\",\n      \"key\": \"7061727469636970616E745F77686F5F6861735F7468655F62616C6C\",\n      \"value\": \"62\",\n      \"proof\": \"\",\n      \"height\": \"0\",\n      \"log\": \"\"\n    }\n  }\n}",
-   headers: [
-     {"Access-Control-Allow-Credentials", "true"},
-     {"Access-Control-Allow-Origin", ""},
-     {"Access-Control-Expose-Headers", "X-Server-Time"},
-     {"Content-Type", "application/json"},
-     {"X-Server-Time", "1517161965"},
-     {"Date", "Sun, 28 Jan 2018 17:52:45 GMT"},
-     {"Content-Length", "264"}
-   ],
-   request_url: "http://localhost:46657/abci_query?data=\"participant_who_has_the_ball\"",
-   status_code: 200}}
+  %{
+    "code" => 0,
+    "decoded_key" => "participant_who_has_the_ball",
+    "decoded_value" => "b",
+    "height" => "0",
+    "index" => "0",
+    "key" => "7061727469636970616E745F77686F5F6861735F7468655F62616C6C",
+    "log" => "",
+    "proof" => "",
+    "value" => "62"
+  }
   ```
+  Result extended with keys `decoded_key` and `decoded_value` only for the purpose of convinience while testing.
 ## Tech stack
 
 * elixir [1.6.0](https://elixir-lang.org/blog/2018/01/17/elixir-v1-6-0-released/)
