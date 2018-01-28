@@ -16,7 +16,7 @@ defmodule TendermintStateReplicationTestProject.MixProject do
   def application do
     [
       mod: {Application, []},
-      extra_applications: [:logger]
+      extra_applications: [:logger, :httpoison]
     ]
   end
 
@@ -26,7 +26,8 @@ defmodule TendermintStateReplicationTestProject.MixProject do
       {:gpb, git: "https://github.com/tomas-abrahamsson/gpb", tag: "4.0.2"},
       {:ranch, git: "https://github.com/ninenines/ranch", tag: "1.3.2"},
       {:abci_server, github: "KrzysiekJ/abci_server", tag: "v0.3.0"},
-      {:merkle_tree, "~> 1.0.0"}
+      {:merkle_tree, "~> 1.0.0"},
+      {:httpoison, "~> 1.0"},
     ]
   end
 end
