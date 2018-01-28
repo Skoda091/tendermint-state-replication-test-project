@@ -3,6 +3,8 @@ defmodule TendermintStateReplicationTestProject.Transaction do
   # use :abci_app
   @behaviour :abci_app
 
+  @whitelisted_participants ~w(a b c d)
+
   ## Client API
 
   def start_link() do
@@ -21,7 +23,7 @@ defmodule TendermintStateReplicationTestProject.Transaction do
   end
 
   def handle_call(request, from, state) do
-    IO.inspect state, label: "#received_state"
+    # IO.inspect state, label: "#received_state"
     state_values = with [_| _] <- state do
       state
     else
@@ -70,6 +72,19 @@ defmodule TendermintStateReplicationTestProject.Transaction do
   defp process_request({:RequestInitChain, validators}, state) do
     # IO.puts "RequestInitChain:"
     # IO.inspect validators, label: "VALIDATORS"
+    # INFO: init state paints that participant "a" has the ball
+    state = if Keyword.has_key?(state, :participant_who_has_the_ball) do
+      state
+    else
+      Keyword.merge(state, [participant_who_has_the_ball: "a"])
+    end
+
+    state = if Keyword.has_key?(state, :root_hash) do
+      state
+    else
+      mt = MerkleTree.new @whitelisted_participants
+      Keyword.merge(state, [root_hash: mt.root])
+    end
     {{:ResponseInitChain, :undefined}, state}
   end
 
@@ -96,23 +111,43 @@ defmodule TendermintStateReplicationTestProject.Transaction do
   defp process_request({:RequestCheckTx, tx}, state) do
     IO.puts "RequestCheckTx:"
     IO.inspect tx, label: "TX"
-    # TODO: check data against nonce
-    {{:ResponseCheckTx, :undefined, tx, :undefined, :undefined, :undefined}, state}
+    data =
+      with tx <- parse_tx(tx),
+          {:ok, from, to, mt_node} <- get_params(tx, state),
+          :ok <- check_ball_owner(from, state),
+          mt_tree <- create_merkle_tree(mt_node),
+          {:ok, to_index} <- get_index(to),
+          %MerkleTree.Proof{hashes: proof} = mt_proof <- MerkleTree.Proof.prove(mt_tree, to_index),
+          true <- MerkleTree.Proof.proven?({to, to_index}, mt_node.value, mt_proof) do
+        %{code: 0, log: :undefined}
+      else
+        {:error, message} -> %{code: 1, log: message}
+        false -> %{code: 1, log: "Transaction failed because of merkle proof is invalid"}
+      end
+    {{:ResponseCheckTx, data.code, :undefined, data.log, :undefined, :undefined}, state}
   end
 
   defp process_request({:RequestDeliverTx, tx}, state) do
-    # IO.puts "RequestDeliverTx:"
-    # IO.inspect tx, label: "TX"
-    tx = parse_tx(tx)
-    {{:ResponseDeliverTx, :undefined, :undefined, :undefined, []}, Keyword.merge(state, tx)}
+    IO.puts "RequestDeliverTx:"
+    IO.inspect tx, label: "TX"
+    data =
+      with tx <- parse_tx(tx),
+          {:ok, _from, to, _mt_node} <- get_params(tx, state),
+          {:ok, new_state} <- update_state(state, to) do
+        %{code: 0, log: :undefined, state: new_state}
+      else
+        {:error, message} -> %{code: 1, log: message, state: state}
+      end
+    {{:ResponseDeliverTx, data.code, :undefined, data.log, []}, data.state}
   end
 
   defp process_request({:RequestQuery, data, path, height, prove}, state) do
-    IO.puts "RequestQuery:"
-    IO.inspect data, label: "DATA"
-    IO.inspect path, label: "PATH"
-    IO.inspect height, label: "HEIGHT"
-    IO.inspect prove, label: "PROVE"
+    # IO.puts "RequestQuery:"
+    # IO.inspect data, label: "DATA"
+    # IO.inspect path, label: "PATH"
+    # IO.inspect height, label: "HEIGHT"
+    # IO.inspect prove, label: "PROVE"
+    ball
     {{:ResponseQuery, :undefined, :undefined, :undefined, data, :undefined, :undefined, :undefined}, state}
   end
 
@@ -128,5 +163,51 @@ defmodule TendermintStateReplicationTestProject.Transaction do
       end
     end)
   end
-end
 
+  defp get_params(tx, state) do
+    with {:ok, mt_node} <- Keyword.fetch(state, :root_hash),
+         {:ok, from} <- Keyword.fetch(tx, :from),
+         {:ok, to} <- Keyword.fetch(tx, :to) do
+      {:ok, from, to, mt_node}
+    else
+      :error -> {:error, "Wrong parameters."}
+    end
+  end
+
+  defp get_index(key) do
+    key = String.to_atom(key)
+    list = Enum.with_index(@whitelisted_participants)
+    keywordlist = for {key, value} <- list, do: {String.to_atom(key), value}
+    case Keyword.fetch(keywordlist, key) do
+      {:ok, index} -> {:ok, index}
+      :error -> {:error, "Unknown destination participant."}
+    end
+  end
+
+  defp create_merkle_tree(node) do
+    %MerkleTree{
+      root: node,
+      hash_function: &MerkleTree.Crypto.sha256/1,
+      blocks: @whitelisted_participants
+    }
+  end
+
+  defp check_ball_owner(from, state) do
+    with {:ok, owner} <- Keyword.fetch(state, :participant_who_has_the_ball),
+        true <- from == owner do
+      :ok
+    else
+      :error -> {:error, "No information about the ball owner."}
+      false -> {:error, "Current ball owner is incorrect, #{from} participant doesn't have the ball."}
+    end
+  end
+
+  defp update_state(current_state, ball_destination) do
+    with {:ok, owner} <- Keyword.fetch(current_state, :participant_who_has_the_ball),
+        state <- Keyword.put(current_state, :participant_who_has_the_ball, ball_destination) do
+      {:ok, state}
+    else
+      :error -> {:error, "No information about the ball owner."}
+    end
+  end
+end

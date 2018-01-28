@@ -1,6 +1,13 @@
 defmodule TendermintStateReplicationTestProject.Request do
-  # INFO: expexted parmas int form, e.g. "key1=value1:key2=value2"
-  def send_tx(param \\ "name=satoshi") do
-    HTTPoison.get(~s(http://localhost:46657/broadcast_tx_commit?tx="#{param}"), [], [ ssl: [{:versions, [:'tlsv1.2']}] ])
+  def pass_ball(from, to) do
+    params = "from=#{from}:to=#{to}"
+    HTTPoison.get(~s(http://localhost:46657/broadcast_tx_commit?tx="#{params}"), [], [ ssl: [{:versions, [:'tlsv1.2']}] ])
+  end
+
+  def check_ball_owner() do
+    HTTPoison.get(~s(http://localhost:46657/abci_query?data="participant_who_has_the_ball"), [], [ ssl: [{:versions, [:'tlsv1.2']}] ])
   end
 end
+
+# TendermintStateReplicationTestProject.Request.pass_ball("a", "b")
+# http://localhost:46657/abci_query?path=_&data=
