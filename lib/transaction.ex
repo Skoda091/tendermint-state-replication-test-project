@@ -142,13 +142,18 @@ defmodule TendermintStateReplicationTestProject.Transaction do
   end
 
   defp process_request({:RequestQuery, data, path, height, prove}, state) do
-    # IO.puts "RequestQuery:"
-    # IO.inspect data, label: "DATA"
+    IO.puts "RequestQuery:"
+    IO.inspect data, label: "DATA"
     # IO.inspect path, label: "PATH"
     # IO.inspect height, label: "HEIGHT"
     # IO.inspect prove, label: "PROVE"
-    ball
-    {{:ResponseQuery, :undefined, :undefined, :undefined, data, :undefined, :undefined, :undefined}, state}
+    data =
+      with {:ok, value} <- get_from_state(data, state) do
+        %{code: 0, log: :undefined, value: value, key: data}
+      else
+        {:error, message} -> %{code: 1, log: message, value: "", key: data}
+      end
+    {{:ResponseQuery, data.code, :undefined, data.key, data.value, :undefined, :undefined, data.log}, state}
   end
 
   defp parse_tx(tx) do
@@ -199,6 +204,15 @@ defmodule TendermintStateReplicationTestProject.Transaction do
     else
       :error -> {:error, "No information about the ball owner."}
       false -> {:error, "Current ball owner is incorrect, #{from} participant doesn't have the ball."}
+    end
+  end
+
+  defp get_from_state(data, state) do
+    with key <- String.to_atom(data),
+         {:ok, value} <- Keyword.fetch(state, key) do
+      {:ok, value}
+    else
+      :error -> {:error, "No data in state about #{data}."}
     end
   end
 
