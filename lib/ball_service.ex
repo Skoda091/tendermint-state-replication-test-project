@@ -6,9 +6,18 @@ defmodule TendermintStateReplicationTestProject.BallService do
       [],
       ssl: [{:versions, [:"tlsv1.2"]}]
     )
-    response.body
-    |> Poison.decode!()
-    |> Map.get("result")
+    data =
+      response.body
+      |> Poison.decode!()
+      |> Map.get("result")
+
+    if data == nil do
+      response.body
+      |> Poison.decode!()
+      |> Map.get("error")
+    else
+      data
+    end
   end
 
   def check_ball_owner() do
